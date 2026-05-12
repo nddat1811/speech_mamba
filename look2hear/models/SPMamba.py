@@ -20,7 +20,11 @@ from ..utils.get_layer_from_string import get_layer
 from .base_model import BaseModel
 
 from functools import partial
-from mamba_ssm.modules.mamba_simple import Mamba, Block
+from mamba_ssm.modules.mamba_simple import Mamba
+try:
+    from mamba_ssm.modules.mamba_simple import Block
+except ImportError:
+    from mamba_ssm.modules.block import Block
 from mamba_ssm.models.mixer_seq_simple import _init_weights
 from mamba_ssm.ops.triton.layernorm import RMSNorm
 
