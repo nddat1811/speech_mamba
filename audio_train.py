@@ -173,7 +173,13 @@ def main(config):
         # sync_batchnorm=True,
         # fast_dev_run=True,
     )
-    trainer.fit(system)
+    last_ckpt_path = os.path.join(exp_dir, "last.ckpt")
+    ckpt_path = last_ckpt_path if os.path.exists(last_ckpt_path) else None
+    if ckpt_path is not None:
+        print_only(f"Resuming training from checkpoint: {ckpt_path}")
+    else:
+        print_only("No last.ckpt found. Starting training from scratch.")
+    trainer.fit(system, ckpt_path=ckpt_path)
     print_only("Finished Training")
     best_k = {k: v.item() for k, v in checkpoint.best_k_models.items()}
     with open(os.path.join(exp_dir, "best_k_models.json"), "w") as f:
