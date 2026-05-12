@@ -31,29 +31,34 @@ try:
 except ImportError:
     from mamba_ssm.ops.triton.layer_norm import RMSNorm
 
+
+def make_mamba_block(in_channels, layer_idx):
+    kwargs = {
+        "mixer_cls": partial(Mamba, layer_idx=layer_idx, d_state=16, d_conv=4, expand=4),
+        "norm_cls": partial(RMSNorm, eps=1e-5),
+        "fused_add_norm": False,
+    }
+    try:
+        return Block(in_channels, mlp_cls=nn.Identity, **kwargs)
+    except TypeError as exc:
+        if "mlp_cls" not in str(exc):
+            raise
+        return Block(in_channels, **kwargs)
+
+
 class MambaBlock(nn.Module):
     def __init__(self, in_channels, n_layer=1, bidirectional=False):
         super(MambaBlock, self).__init__()
         self.forward_blocks = nn.ModuleList([])
         for i in range(n_layer):
             self.forward_blocks.append(
-                Block(
-                    in_channels,
-                    mixer_cls=partial(Mamba, layer_idx=i, d_state=16, d_conv=4, expand=4),
-                    norm_cls=partial(RMSNorm, eps=1e-5),
-                    fused_add_norm=False,
-                )
+                make_mamba_block(in_channels, i)
             )
         if bidirectional:
             self.backward_blocks = nn.ModuleList([])
             for i in range(n_layer):
                 self.backward_blocks.append(
-                        Block(
-                        in_channels,
-                        mixer_cls=partial(Mamba, layer_idx=i, d_state=16, d_conv=4, expand=4),
-                        norm_cls=partial(RMSNorm, eps=1e-5),
-                        fused_add_norm=False,
-                    )
+                    make_mamba_block(in_channels, i)
                 )
 
         self.apply(partial(_init_weights, n_layer=n_layer))
