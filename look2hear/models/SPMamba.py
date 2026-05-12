@@ -26,7 +26,10 @@ try:
 except ImportError:
     from mamba_ssm.modules.block import Block
 from mamba_ssm.models.mixer_seq_simple import _init_weights
-from mamba_ssm.ops.triton.layernorm import RMSNorm
+try:
+    from mamba_ssm.ops.triton.layernorm import RMSNorm
+except ImportError:
+    from mamba_ssm.ops.triton.layer_norm import RMSNorm
 
 class MambaBlock(nn.Module):
     def __init__(self, in_channels, n_layer=1, bidirectional=False):
