@@ -10,7 +10,13 @@ import random
 import numpy as np
 from torch.optim.lr_scheduler import ReduceLROnPlateau
 from collections.abc import MutableMapping
-from speechbrain.processing.speech_augmentation import SpeedPerturb
+try:
+    from speechbrain.processing.speech_augmentation import SpeedPerturb
+except ImportError:
+    try:
+        from speechbrain.augment.time_domain import SpeedPerturb
+    except ImportError:
+        SpeedPerturb = None
 
 def flatten_dict(d, parent_key="", sep="_"):
     """Flattens a dictionary into a single-level dictionary while preserving
@@ -59,11 +65,17 @@ class AudioLightningModule(pl.LightningModule):
         self.scheduler = scheduler
         self.config = {} if config is None else config
         # Speed Aug
-        self.speedperturb = SpeedPerturb(
-            self.config["datamodule"]["data_config"]["sample_rate"],
-            speeds=[95, 100, 105],
-            perturb_prob=1.0
-        )
+        self.speedperturb = None
+        if self.config["training"]["SpeedAug"]:
+            if SpeedPerturb is None:
+                raise ImportError(
+                    "SpeedAug is enabled, but SpeechBrain SpeedPerturb could not be imported."
+                )
+            self.speedperturb = SpeedPerturb(
+                self.config["datamodule"]["data_config"]["sample_rate"],
+                speeds=[95, 100, 105],
+                perturb_prob=1.0
+            )
         # Save lightning"s AttributeDict under self.hparams
         self.default_monitor = "val_loss/dataloader_idx_0"
         self.save_hyperparameters(self.config_to_hparams(self.config))

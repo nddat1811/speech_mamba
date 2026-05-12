@@ -9,7 +9,6 @@ import torch
 import numpy as np
 import logging
 
-from torch_mir_eval.separation import bss_eval_sources
 import fast_bss_eval
 from ..losses import (
     PITLossWrapper,
