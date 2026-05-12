@@ -10,6 +10,7 @@ import torch
 from torch import Tensor
 import argparse
 import json
+import uuid
 import look2hear.datas
 import look2hear.models
 import look2hear.system
@@ -149,11 +150,21 @@ def main(config):
     # default logger used by trainer
     logger_dir = os.path.join(os.getcwd(), "Experiments", "tensorboard_logs")
     os.makedirs(os.path.join(logger_dir, config["exp"]["exp_name"]), exist_ok=True)
+    wandb_id_path = os.path.join(exp_dir, "wandb_run_id.txt")
+    if os.path.exists(wandb_id_path):
+        with open(wandb_id_path) as f:
+            wandb_run_id = f.read().strip()
+    else:
+        wandb_run_id = uuid.uuid4().hex
+        with open(wandb_id_path, "w") as f:
+            f.write(wandb_run_id)
     # comet_logger = TensorBoardLogger(logger_dir, name=config["exp"]["exp_name"])
     comet_logger = WandbLogger(
             name=config["exp"]["exp_name"], 
+            version=wandb_run_id,
             save_dir=os.path.join(logger_dir, config["exp"]["exp_name"]), 
             project="Real-work-dataset",
+            resume="allow",
             # offline=True
     )
 

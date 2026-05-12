@@ -6,6 +6,8 @@
 ###
 import torch
 import pytorch_lightning as pl
+import random
+import numpy as np
 from torch.optim.lr_scheduler import ReduceLROnPlateau
 from collections.abc import MutableMapping
 from speechbrain.processing.speech_augmentation import SpeedPerturb
@@ -230,7 +232,32 @@ class AudioLightningModule(pl.LightningModule):
     def on_save_checkpoint(self, checkpoint):
         """Overwrite if you want to save more things in the checkpoint."""
         checkpoint["training_config"] = self.config
+        checkpoint["random_state"] = {
+            "python_random_state": random.getstate(),
+            "numpy_random_state": np.random.get_state(),
+            "torch_random_state": torch.get_rng_state(),
+            "cuda_random_state_all": torch.cuda.get_rng_state_all()
+            if torch.cuda.is_available()
+            else None,
+        }
         return checkpoint
+
+    def on_load_checkpoint(self, checkpoint):
+        """Restore extra state saved with the Lightning checkpoint."""
+        random_state = checkpoint.get("random_state")
+        if random_state is None:
+            return
+
+        try:
+            random.setstate(random_state["python_random_state"])
+            np.random.set_state(random_state["numpy_random_state"])
+            torch.set_rng_state(random_state["torch_random_state"])
+            cuda_random_state_all = random_state.get("cuda_random_state_all")
+            if cuda_random_state_all is not None and torch.cuda.is_available():
+                torch.cuda.set_rng_state_all(cuda_random_state_all)
+            print("=> Random states restored successfully")
+        except Exception as e:
+            print(f"Warning: Failed to restore random states: {e}")
 
     @staticmethod
     def config_to_hparams(dic):
