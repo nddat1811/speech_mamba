@@ -24,7 +24,7 @@ def write_json(path, items):
 
 def main():
     parser = argparse.ArgumentParser(
-        description="Create mix_clean.json, s1.json, and s2.json manifests for Libri2Mix-style training."
+        description="Create mixture/source JSON manifests for Libri2Mix/WHAM-style training."
     )
     parser.add_argument(
         "--split_dir",
@@ -36,7 +36,16 @@ def main():
         default=None,
         help="Where to write JSON files. Defaults to --split_dir.",
     )
-    parser.add_argument("--mix_dir", default="mix_clean")
+    parser.add_argument(
+        "--mix_dir",
+        default="mix_clean",
+        help="Mixture wav directory name. Use mix_both for noisy WHAM/LibriMix.",
+    )
+    parser.add_argument(
+        "--mix_json",
+        default=None,
+        help="Output mixture JSON filename. Defaults to <mix_dir>.json.",
+    )
     parser.add_argument("--s1_dir", default="s1")
     parser.add_argument("--s2_dir", default="s2")
     args = parser.parse_args()
@@ -92,12 +101,14 @@ def main():
         s1_infos.append([str(s1_path), s1_len])
         s2_infos.append([str(s2_path), s2_len])
 
-    write_json(out_dir / "mix_clean.json", mix_infos)
+    mix_json = args.mix_json or f"{args.mix_dir}.json"
+
+    write_json(out_dir / mix_json, mix_infos)
     write_json(out_dir / "s1.json", s1_infos)
     write_json(out_dir / "s2.json", s2_infos)
 
     print(f"Wrote {len(common_names)} examples to: {out_dir}")
-    print(f"- {out_dir / 'mix_clean.json'}")
+    print(f"- {out_dir / mix_json}")
     print(f"- {out_dir / 's1.json'}")
     print(f"- {out_dir / 's2.json'}")
 
