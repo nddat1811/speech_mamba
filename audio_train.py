@@ -35,6 +35,7 @@ from look2hear.utils import print_only, MyRichProgressBar, RichProgressBarTheme
 import warnings
 
 warnings.filterwarnings("ignore")
+os.environ.setdefault("WANDB_MODE", "disabled")
 
 parser = argparse.ArgumentParser()
 parser.add_argument(
