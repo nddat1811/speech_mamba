@@ -36,7 +36,7 @@ loss:
 
 training:
   system: AudioLightningModule
-  gpus: [1,2,3,4,5,6,7]
+  gpus: [0]
   parallel: ddp
   epochs: 500
   early_stop:
@@ -59,15 +59,17 @@ scheduler:
     patience: 10
     factor: 0.5
 
-# Data config
+# Data config — each path is a split root: must contain s1/, s2/, mixture subdir, and mix_clean.json + s1.json + s2.json (from build_librimix_json.py).
+# Libri2Mix wav16k/min: use train-100 or train-360; mixture from mix_both -> pass --mix_subdir mix_both when building JSON.
+# valid_dir=test: only if you have no dev split (leaks test into val monitoring; prefer real dev when possible).
 datamodule:
   data_name: Libri2MixDataModule
   data_config:
-    train_dir: DataPreProcess/Libri2Mix/train-100
-    valid_dir: DataPreProcess/Libri2Mix/dev
-    test_dir: DataPreProcess/Libri2Mix/test
+    train_dir: /mnt/c/Users/tun/Desktop/code/speech_separation/dataset/Libri2Mix/wav16k/min/train-100
+    valid_dir: /mnt/c/Users/tun/Desktop/code/speech_separation/dataset/Libri2Mix/wav16k/min/test
+    test_dir: /mnt/c/Users/tun/Desktop/code/speech_separation/dataset/Libri2Mix/wav16k/min/test
     n_src: 2
-    sample_rate: 8000
+    sample_rate: 16000
     segment: 3.0
     normalize_audio: false
     batch_size: 1

@@ -96,8 +96,9 @@ class MyRichProgressBar(RichProgressBar):
             reconfigure(**self._console_kwargs)
             # file = open("/home/likai/data/Look2Hear/Experiments/run_logs/EdgeFRCNN-Noncausal.log", 'w')
             self._console: Console = Console(force_terminal=True)
-            self._console.clear_live()
-            self._metric_component = MetricsTextColumn(trainer, self.theme.metrics)
+            if self._console._live_stack:
+                self._console.clear_live()
+            self._metric_component = MyMetricsTextColumn(self.theme.metrics)
             self.progress = CustomProgress(
                 *self.configure_columns(trainer),
                 self._metric_component,
