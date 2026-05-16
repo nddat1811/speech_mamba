@@ -41,6 +41,7 @@ class Libri2MixDataset(Dataset):
         segment: float = 4.0,
         normalize_audio: bool = False,
         audio_only: bool = True,
+        mix_json: str = "mix_clean.json",
     ) -> None:
         super().__init__()
         self.EPS = 1e-8
@@ -60,12 +61,12 @@ class Libri2MixDataset(Dataset):
             self.fps_len = int(segment * fps)
         self.n_src = n_src
         self.test = self.seg_len is None
-        mix_json = os.path.join(json_dir, "mix_clean.json")
+        mix_json_path = os.path.join(json_dir, mix_json)
         sources_json = [
             os.path.join(json_dir, source + ".json") for source in ["s1", "s2"]
         ]
 
-        with open(mix_json, "r") as f:
+        with open(mix_json_path, "r") as f:
             mix_infos = json.load(f)
         sources_infos = []
         for src_json in sources_json:
@@ -203,6 +204,7 @@ class Libri2MixDataModule(object):
         pin_memory: bool = False,
         persistent_workers: bool = False,
         audio_only: bool = True,
+        mix_json: str = "mix_clean.json",
     ) -> None:
         super().__init__()
         if train_dir == None or valid_dir == None or test_dir == None:
@@ -224,6 +226,7 @@ class Libri2MixDataModule(object):
         self.pin_memory = pin_memory
         self.persistent_workers = persistent_workers
         self.audio_only = audio_only
+        self.mix_json = mix_json
 
         self.data_train: Dataset = None
         self.data_val: Dataset = None
@@ -238,6 +241,7 @@ class Libri2MixDataModule(object):
             segment=self.segment,
             normalize_audio=self.normalize_audio,
             audio_only=self.audio_only,
+            mix_json=self.mix_json,
         )
         self.data_val = Libri2MixDataset(
             json_dir=self.valid_dir,
@@ -247,6 +251,7 @@ class Libri2MixDataModule(object):
             segment=self.segment,
             normalize_audio=self.normalize_audio,
             audio_only=self.audio_only,
+            mix_json=self.mix_json,
         )
         self.data_test = Libri2MixDataset(
             json_dir=self.test_dir,
@@ -256,6 +261,7 @@ class Libri2MixDataModule(object):
             segment=self.segment,
             normalize_audio=self.normalize_audio,
             audio_only=self.audio_only,
+            mix_json=self.mix_json,
         )
 
     def train_dataloader(self) -> DataLoader:
