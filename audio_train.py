@@ -31,6 +31,7 @@ from pytorch_lightning.strategies.ddp import DDPStrategy
 from rich import print, reconfigure
 from collections.abc import MutableMapping
 from look2hear.utils import print_only, MyRichProgressBar, RichProgressBarTheme
+from look2hear.utils.checkpoint_log_callback import CheckpointTrainingLogCallback
 
 import warnings
 
@@ -143,6 +144,7 @@ def main(config):
         print_only("Instantiating EarlyStopping")
         callbacks.append(EarlyStopping(**config["training"]["early_stop"]))
     callbacks.append(MyRichProgressBar(theme=RichProgressBarTheme()))
+    callbacks.append(CheckpointTrainingLogCallback(log_dir=checkpoint_dir))
 
     # Don't ask GPU if they are not available.
     gpus = config["training"]["gpus"] if torch.cuda.is_available() else None
