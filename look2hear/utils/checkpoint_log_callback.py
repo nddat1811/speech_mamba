@@ -10,6 +10,21 @@ import pytorch_lightning as pl
 from pytorch_lightning.callbacks import ModelCheckpoint
 
 
+def append_training_log(
+    log_dir: str, line: str, log_filename: str = "training.log"
+) -> None:
+    """Append a line to the per-experiment training log."""
+    os.makedirs(log_dir, exist_ok=True)
+    log_path = os.path.join(log_dir, log_filename)
+    if not os.path.exists(log_path) or os.path.getsize(log_path) == 0:
+        with open(log_path, "w", encoding="utf-8") as f:
+            f.write("===== Training Log =====\n")
+    if not line.endswith("\n"):
+        line = line + "\n"
+    with open(log_path, "a", encoding="utf-8") as f:
+        f.write(line)
+
+
 def _metric_scalar(trainer: pl.Trainer, *keys: str) -> float:
     metrics = trainer.callback_metrics
     for k in keys:
