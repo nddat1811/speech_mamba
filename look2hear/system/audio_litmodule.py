@@ -10,6 +10,8 @@ import random
 import numpy as np
 from torch.optim.lr_scheduler import ReduceLROnPlateau
 from collections.abc import MutableMapping
+from look2hear.utils.checkpoint_log_callback import append_training_log
+from look2hear.utils.lightning_utils import print_only
 try:
     from speechbrain.processing.speech_augmentation import SpeedPerturb
 except ImportError:
@@ -227,12 +229,35 @@ class AudioLightningModule(pl.LightningModule):
                 epoch_schedulers.append(sched)
         return [self.optimizer], epoch_schedulers
 
-    # def lr_scheduler_step(self, scheduler, optimizer_idx, metric):
-    #     if metric is None:
-    #         scheduler.step()
-    #     else:
-    #         scheduler.step(metric)
-    
+    def lr_scheduler_step(self, scheduler, optimizer_idx, metric):
+        old_lr = self.optimizer.param_groups[0]["lr"]
+        val_no_impv = (
+            scheduler.num_bad_epochs if isinstance(scheduler, ReduceLROnPlateau) else None
+        )
+
+        if metric is None:
+            scheduler.step()
+        else:
+            scheduler.step(metric)
+
+        new_lr = self.optimizer.param_groups[0]["lr"]
+        if new_lr >= old_lr or not self.trainer.is_global_zero:
+            return
+
+        reduction_pct = (1.0 - new_lr / old_lr) * 100.0 if old_lr > 0 else 0.0
+        impv_suffix = (
+            f" | val_no_impv: {val_no_impv}" if val_no_impv is not None else ""
+        )
+        line = (
+            f"LR SCHEDULE | Epoch {self.current_epoch} | "
+            f"LR reduced from {old_lr:.8f} to {new_lr:.8f} "
+            f"({reduction_pct:.0f}% reduction){impv_suffix}"
+        )
+        print_only(line)
+        exp_dir = self.config.get("main_args", {}).get("exp_dir")
+        if exp_dir:
+            append_training_log(exp_dir, line)
+
     def train_dataloader(self):
         """Training dataloader"""
         return self.train_loader
