@@ -193,13 +193,14 @@ def main(config):
         print_only(f"Resuming training from checkpoint: {ckpt_path}")
     else:
         print_only("No last.ckpt found. Starting training from scratch.")
-    trainer.fit(system, ckpt_path=ckpt_path)
+    # PyTorch 2.6+ defaults torch.load(weights_only=True); Lightning .ckpt needs full pickle.
+    trainer.fit(system, ckpt_path=ckpt_path, weights_only=False)
     print_only("Finished Training")
     best_k = {k: v.item() for k, v in checkpoint.best_k_models.items()}
     with open(os.path.join(exp_dir, "best_k_models.json"), "w") as f:
         json.dump(best_k, f, indent=0)
 
-    state_dict = torch.load(checkpoint.best_model_path)
+    state_dict = torch.load(checkpoint.best_model_path, weights_only=False)
     system.load_state_dict(state_dict=state_dict["state_dict"])
     system.cpu()
 
