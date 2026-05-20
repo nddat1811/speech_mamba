@@ -245,6 +245,53 @@ class STFTEncoder(AbsEncoder):
 
         return audio.as_strided(shape, strides, storage_offset=0).unbind(dim=-1)
 
+
+class GlobalLayerNorm4D(nn.Module):
+    """Global layer normalization over time and frequency (gLN)."""
+
+    def __init__(self, channel_size, eps=1e-5):
+        super().__init__()
+        self.gamma = Parameter(torch.ones(1, channel_size, 1, 1))
+        self.beta = Parameter(torch.zeros(1, channel_size, 1, 1))
+        self.eps = eps
+
+    def forward(self, x):
+        mu = x.mean(dim=(2, 3), keepdim=True)
+        std = torch.sqrt(x.var(dim=(2, 3), unbiased=False, keepdim=True) + self.eps)
+        return ((x - mu) / std) * self.gamma + self.beta
+
+
+class ComplexSTFTGLNEncoder(nn.Module):
+    """Complex STFT front-end with gLN and Conv2d projection to embedding dim."""
+
+    def __init__(
+        self,
+        n_fft,
+        stride,
+        window="hann",
+        n_imics=1,
+        emb_dim=48,
+        eps=1e-5,
+        use_builtin_complex=False,
+        t_ksize=3,
+    ):
+        super().__init__()
+        self.n_imics = n_imics
+        self.stft = STFTEncoder(
+            n_fft, n_fft, stride, window=window, use_builtin_complex=use_builtin_complex
+        )
+        self.gln = GlobalLayerNorm4D(2 * n_imics, eps=eps)
+        ks, padding = (t_ksize, 3), (t_ksize // 2, 1)
+        self.proj = nn.Conv2d(2 * n_imics, emb_dim, ks, padding=padding)
+
+    def forward(self, input, ilens):
+        spectrum, flens = self.stft(input, ilens)  # [B, T, M, F]
+        batch0 = spectrum.transpose(1, 2)  # [B, M, T, F]
+        batch = torch.cat((batch0.real, batch0.imag), dim=1)  # [B, 2*M, T, F]
+        batch = self.proj(self.gln(batch))
+        return batch, flens, batch0
+
+
 class AbsDecoder(torch.nn.Module, ABC):
     @abstractmethod
     def forward(
@@ -441,17 +488,19 @@ class SPMamba(BaseModel):
         assert n_fft % 2 == 0
         n_freqs = n_fft // 2 + 1
 
-        self.enc = STFTEncoder(
-            n_fft, n_fft, stride, window=window, use_builtin_complex=use_builtin_complex
+        self.encoder = ComplexSTFTGLNEncoder(
+            n_fft=n_fft,
+            stride=stride,
+            window=window,
+            n_imics=n_imics,
+            emb_dim=emb_dim,
+            eps=eps,
+            use_builtin_complex=use_builtin_complex,
         )
         self.dec = STFTDecoder(n_fft, n_fft, stride, window=window)
 
         t_ksize = 3
         ks, padding = (t_ksize, 3), (t_ksize // 2, 1)
-        self.conv = nn.Sequential(
-            nn.Conv2d(2 * n_imics, emb_dim, ks, padding=padding),
-            nn.GroupNorm(1, emb_dim, eps=eps),
-        )
 
         self.blocks = nn.ModuleList([])
         for _ in range(n_layers):
@@ -505,12 +554,8 @@ class SPMamba(BaseModel):
         mix_std_ = torch.std(input, dim=(1, 2), keepdim=True)  # [B, 1, 1]
         input = input / mix_std_  # RMS normalization
         ilens = torch.ones(input.shape[0], dtype=torch.long, device=input.device) * n_samples
-        batch = self.enc(input, ilens)[0]  # [B, T, M, F]
-        batch0 = batch.transpose(1, 2)  # [B, M, T, F]
-        batch = torch.cat((batch0.real, batch0.imag), dim=1)  # [B, 2*M, T, F]
+        batch, _, batch0 = self.encoder(input, ilens)  # [B, emb_dim, T, F]
         n_batch, _, n_frames, n_freqs = batch.shape
-
-        batch = self.conv(batch)  # [B, -1, T, F]
 
         for ii in range(self.n_layers):
             batch = self.blocks[ii](batch)  # [B, -1, T, F]

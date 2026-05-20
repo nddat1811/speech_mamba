@@ -229,7 +229,7 @@ class AudioLightningModule(pl.LightningModule):
                 epoch_schedulers.append(sched)
         return [self.optimizer], epoch_schedulers
 
-    def lr_scheduler_step(self, scheduler, optimizer_idx, metric):
+    def lr_scheduler_step(self, scheduler, metric):
         old_lr = self.optimizer.param_groups[0]["lr"]
         val_no_impv = (
             scheduler.num_bad_epochs if isinstance(scheduler, ReduceLROnPlateau) else None
